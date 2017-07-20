@@ -114,6 +114,8 @@ const indexInSources = (arr, src) => {
  */
 const factory = (player, initialList, initialIndex = 0) => {
   let list = Array.isArray(initialList) ? initialList.slice() : [];
+  var nextButton;
+  var previousButton;
 
   /**
    * Get/set the playlist for a player.
@@ -147,6 +149,77 @@ const factory = (player, initialList, initialIndex = 0) => {
     // Always return a shallow clone of the playlist list.
     return list.slice();
   };
+
+  player.playlist.nextButton = videojs.extend(videojs.getComponent('Button'), {
+    constructor: function (player, options) {
+      videojs.getComponent('Button').call(this, player, options);
+
+      // Bind touchstart for mobile browsers and prevent default
+      this.on('touchstart', function (e) {
+          playlist.next();
+          e.preventDefault();
+      });
+
+      // Bind click event for desktop browsers
+      this.on('click', function () {
+          playlist.next();
+      });
+    }
+  });
+
+  player.playlist.nextButton.prototype.createEl = function () {
+      return videojs.getComponent('Button').prototype.createEl.call(this, 'div', {
+          className: 'vjs-control vjs-button vjs-playlist-btn vjs-playlist-next-btn disabled',
+          role: 'button',
+          'aria-live': 'polite',
+          innerHTML: '<div class="vjs-playlist-next-content"></div>'
+      });
+  };
+
+  player.playlist.previousButton = videojs.extend(videojs.getComponent('Button'), {
+    constructor: function (player, options) {
+      videojs.getComponent('Button').call(this, player, options);
+
+      // Bind touchstart for mobile browsers and prevent default
+      this.on('touchstart', function (e) {
+          playlist.previous();
+          e.preventDefault();
+      });
+
+      // Bind click event for desktop browsers
+      this.on('click', function () {
+          playlist.previous();
+      });
+    }
+  });
+
+  player.playlist.previousButton.prototype.createEl = function () {
+      return videojs.getComponent('Button').prototype.createEl.call(this, 'div', {
+          className: 'vjs-control vjs-button vjs-playlist-btn vjs-playlist-previous-btn',
+          role: 'button',
+          'aria-live': 'polite',
+          innerHTML: '<div class="vjs-playlist-previous-content"></div>'
+      });
+  };
+
+  player.ready(function(){
+      if (player.controlBar.nextButton) {
+          player.controlBar.removeChild(player.controlBar.nextButton);
+          delete player.controlBar.nextButton;
+      }
+
+      if (player.controlBar.previousButton) {
+          player.controlBar.removeChild(player.controlBar.previousButton);
+          delete player.controlBar.previousButton;
+      }
+
+      nextButton = new player.playlist.nextButton();
+      previousButton = new player.playlist.previousButton();
+
+    
+      player.controlBar.previousButton = player.controlBar.el_.insertBefore(previousButton.el_, player.controlBar.getChild('volumePanel').el_); 
+      player.controlBar.nextButton = player.controlBar.el_.insertBefore(nextButton.el_, player.controlBar.getChild('volumePanel').el_); 
+  });
 
   player.on('loadstart', () => {
     if (playlist.currentItem() === -1) {
@@ -189,6 +262,8 @@ const factory = (player, initialList, initialIndex = 0) => {
       } else {
         playlist.currentIndex_ = playlist.indexOf(playlist.player_.currentSrc() || '');
       }
+
+      playlist.processBtn();
 
       return playlist.currentIndex_;
     },
@@ -304,6 +379,19 @@ const factory = (player, initialList, initialIndex = 0) => {
 
       if (index !== playlist.currentIndex_) {
         return list[playlist.currentItem(index)];
+      }
+    },
+
+    processBtn: function processBtn() {
+      if (player.isReady_ && typeof nextButton !== "undefined") {
+        nextButton.el().classList.remove('disabled');
+        previousButton.el().classList.remove('disabled');
+        
+        if (playlist.currentIndex_ == (list.length - 1)) {
+          nextButton.el().classList.add('disabled');
+        } else if (playlist.currentIndex_ == 0) {
+          previousButton.el().classList.add('disabled');
+        }
       }
     },
 
